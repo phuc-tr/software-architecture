@@ -1,0 +1,58 @@
+services:
+  influxdb:
+    container_name: influxdb
+    image: influxdb:latest
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./influxdb/data:/var/lib/influxdb2
+      - ./influxdb/config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin1234
+      - DOCKER_INFLUXDB_INIT_ORG=univaq
+      - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=Ga8nVsXP4FAe5_M1a5j7uCa4zO_u_M9oUsO8wUSWh_wPbR3clc9ZTv420Li9adOVCPl1tGvn6hLHfI5gP7Lm5A==
+    restart: always
+    networks:
+      sa-network:
+        ipv4_address: 172.30.0.101
+
+  telegraf:
+    container_name: telegraf
+    image: telegraf:latest
+    volumes:
+      - ./telegraf:/etc/telegraf
+      - ./credentials/ca.pem:/etc/telegraf/ca.pem:ro
+      - ./credentials/cert.pem:/etc/telegraf/cert.pem:ro
+      - ./credentials/key.pem:/etc/telegraf/key.pem:ro
+    environment:
+      - INFLUX_TOKEN=CaCVLAglR36PbpOkZwTv4MmQcckGlHpQBmM05MYpeT87vtEblibA59bMmpaJZudHVRux6iO8vVsbPx0c1w6Evg==
+    restart: always
+    depends_on:
+      - influxdb
+    networks:
+      sa-network:
+        ipv4_address: 172.30.0.102
+
+  sensors_data:
+    container_name: sensors_data
+    build:
+      context: ./sensors_data
+    environment:
+      - PUBLISH_INTERVAL_SECONDS=5
+      - N_STATIONS=10
+    volumes:
+      - ./credentials:/creds:ro
+    depends_on: ['telegraf']
+    networks:
+      sa-network:
+        ipv4_address: 172.30.0.103
+
+networks:
+  sa-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
