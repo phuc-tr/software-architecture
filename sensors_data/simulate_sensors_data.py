@@ -3,6 +3,7 @@ import pandas as pd
 import time
 import ssl
 import sys
+import datetime
 import os
 
 # --- Configuration ---
@@ -62,12 +63,12 @@ client.loop_start()
 # --- Main Publishing Loop ---
 
 try:
-    for index, row in station_data_to_publish.iterrows():
+    for index, row in station_data_to_publish.head(120).iterrows():
         for station_id in station_ids_to_publish:
             topic = f"sensors/{station_id}"
             payload = str(row[station_id]) 
-            
-            client.publish(topic, payload, qos=1)
+            if payload and str(payload).lower()!='nan':
+                client.publish(topic, payload, qos=0)
 
         time.sleep(PUBLISH_INTERVAL_SECONDS)
 
@@ -75,5 +76,6 @@ except KeyboardInterrupt:
     pass
 
 finally:
+    print(f"SENSOR SIMULATION ENDED Time: {datetime.datetime.now()}")
     client.loop_stop() 
     client.disconnect()

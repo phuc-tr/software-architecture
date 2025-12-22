@@ -10,7 +10,7 @@ from streamlit_autorefresh import st_autorefresh
 
 # ---------------- CONFIG ----------------
 INFLUX_URL = os.getenv("INFLUX_URL", "http://localhost:8086")
-INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "")
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "Ga8nVsXP4FAe5_M1a5j7uCa4zO_u_M9oUsO8wUSWh_wPbR3clc9ZTv420Li9adOVCPl1tGvn6hLHfI5gP7Lm5A==")
 INFLUX_ORG = os.getenv("INFLUX_ORG", "univaq")
 INFLUX_BUCKET = os.getenv("INFLUX_BUCKET", "sensor_data")
 
@@ -79,6 +79,32 @@ def determine_trend(latest, previous):
     return "Normal"
 
 
+def congestion_score(latest, previous):
+    """
+    Simple adaptive congestion score based on deviation from recent median.
+    """
+    if not previous:
+        return 0
+
+    median_prev = statistics.median(previous)
+    if median_prev == 0:
+        return 0
+
+    return round(((latest - median_prev) / median_prev) * 100, 1)
+
+
+def suggest_action(latest, previous, trend):
+    score = congestion_score(latest, previous)
+
+    if trend == "Increasing" and score > 20:
+        return "⚠️ High congestion detected. Consider traffic light re-timing or rerouting."
+    elif trend == "Increasing":
+        return "↗️ Traffic rising. Monitor closely and prepare mitigation."
+    elif trend == "Decreasing":
+        return "↘️ Traffic easing. No immediate action required."
+    else:
+        return "✅ Traffic stable. Maintain current configuration."
+
 def trend_color(trend):
     return {
         "Increasing": "red",
@@ -109,6 +135,8 @@ for sid in sensor_ids:
         "Sensor ID": sid,
         "Latest Value": latest,
         "Trend": trend,
+        "Congestion %": congestion_score(latest, previous),
+        "Suggested Action": suggest_action(latest, previous, trend),
         "Previous 10": previous,
         "Lat": meta["Lat"],
         "Lng": meta["Lng"]
@@ -123,7 +151,7 @@ with col1:
     st.subheader("Live Sensor Status")
     if not df.empty:
         st.dataframe(
-            df[["Sensor ID", "Latest Value", "Trend", "Previous 10"]],
+            df[["Sensor ID", "Latest Value", "Trend", "Previous 10"]].head(20),
             use_container_width=True
         )
     else:
@@ -155,3 +183,30 @@ with col2:
         st_folium(m, width=700, height=500)
     else:
         st.info("Map will appear once data is available")
+
+st.subheader("🧠 Adaptive System Suggestions")
+
+if not df.empty:
+    action_df = (
+        df[["Sensor ID", "Trend", "Congestion %", "Suggested Action"]]
+        .sort_values("Congestion %", ascending=False)
+        .head(10)
+    )
+
+    st.dataframe(
+        action_df,
+        use_container_width=True
+    )
+
+    # High-level system insight
+    critical = action_df[action_df["Congestion %"] > 20]
+
+    if not critical.empty:
+        st.warning(
+            f"🚦 {len(critical)} sensor(s) show high congestion. "
+            "System recommends proactive traffic control actions."
+        )
+    else:
+        st.success("✅ Traffic conditions are stable across monitored areas.")
+else:
+    st.info("No suggestions available yet.")

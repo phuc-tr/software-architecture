@@ -14,6 +14,9 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=univaq
       - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=Ga8nVsXP4FAe5_M1a5j7uCa4zO_u_M9oUsO8wUSWh_wPbR3clc9ZTv420Li9adOVCPl1tGvn6hLHfI5gP7Lm5A==
+      - INFLUXD_HTTP_MAX_CONCURRENT_WRITE_LIMIT=0
+      - INFLUXD_HTTP_MAX_CONNECTION_LIMIT=0
+      - INFLUXD_STORAGE_WRITE_TIMEOUT=30s
     restart: always
     networks:
       sa-network:
@@ -42,7 +45,7 @@ services:
       context: ./sensors_data
     environment:
       - PUBLISH_INTERVAL_SECONDS=5
-      - N_STATIONS=10
+      - N_STATIONS=250
     volumes:
       - ./credentials:/creds:ro
     depends_on: ['telegraf']
